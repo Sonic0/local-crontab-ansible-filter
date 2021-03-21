@@ -1,0 +1,78 @@
+---
+
+- name: ansible filter examples
+  hosts: localhost
+  vars:
+    cron_to_convert:
+      - crontab: 10 10 ? 10 2 2022
+        type: aws
+      - crontab: 10 10 * 10 2
+        type: standard
+        aws_specific_details:
+          year: 2022
+          question_parts: ['day']
+      - crontab: 10 10 * 10 2
+        timezone: Europe/Rome
+        type: standard
+        aws_specific_details:
+          year: 2022
+          question_parts: [ 'day' ]
+
+  tasks:
+
+    - block:
+
+      - name: show data structure
+        debug:
+          var: cron_to_convert
+
+      tags: always
+
+    # create
+    - block:
+
+      - name: list cron
+        debug:
+          var: item
+        with_items: "{{ cron_to_convert }}"
+
+      - name: count the items to convert
+        set_fact:
+          to_convert_length: "{{ cron_to_convert | length }}"
+
+      - name: Print le leng
+        debug:
+          var: to_convert_length
+
+      tags: create
+
+     # test filter plugin
+    - block:
+
+      - debug:
+          msg: "Cron: {{ item.crontab }}, Type: {{ item.type }} }}"
+        loop: "{{ cron_to_convert | flatten(levels=1) }}"
+
+      - name: Convert crontab from AWS to standard
+        set_fact:
+          converted_cron_from_aws_to_standard: "{{ cron_to_convert[0].crontab | aws_to_standard_cron }}"
+
+      - name: Print converted cron from AWS to Standard
+        debug:
+          var: converted_cron_from_aws_to_standard
+
+      - name: Convert crontab from standard to AWS
+        set_fact:
+          converted_cron_from_standard_to_aws: "{{ converted_cron_from_aws_to_standard.crontab | standard_to_aws_cron(converted_cron_from_aws_to_standard.aws_specific_details) }}"
+
+      - name: Print converted cron from Stardard to AWS
+        debug:
+          var: converted_cron_from_standard_to_aws
+
+      - name: Test recorverted crontab
+        assert:
+          that: converted_cron_from_standard_to_aws == cron_to_convert[0].crontab
+          success_msg: Reconverted crontab (from aws to standard and then to aws) is correct
+          fail_msg: You are a stupid devel! (╥﹏╥)
+
+      tags: test
