@@ -13,11 +13,11 @@
 from __future__ import (absolute_import, division, print_function)
 
 from typing import TypedDict, List, Literal
-from collections import namedtuple
 
 __metaclass__ = type
 
 from local_crontab import Converter
+from local_crontab.converter import WrongTimezoneError
 from ansible.errors import AnsibleFilterError, AnsibleError
 from ansible.utils import helpers
 from ansible.module_utils.six import string_types
@@ -92,12 +92,33 @@ def standard_to_aws_cron(cron_string: str, aws_specific_details: AwsSpecificDeta
     return " ".join(crontab_parts)
 
 
+def aws_local_cron_to_aws_utc_crons(local_crontab: str, timezone: str) -> List[str]:
+    """
+    Convert a crontab, in a local timezone, into a set of UTC crontabs.
+    It creates multiple UTC crontabs because of Daylight Saving Time.
+    More info at https://github.com/Sonic0/local-crontab
+    :param local_crontab: (str) AWS crontab string (https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/ScheduledEvents.html)
+    :param timezone: (str) time zone as TZ database name (https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+    :return: List of UTC crontab strings
+    """
+    standard_cron: ConvertedCronFromAws = aws_to_standard_cron(local_crontab)
+    try:
+        utc_crontabs = Converter(standard_cron.get('crontab'), timezone).to_utc_crons()
+    except WrongTimezoneError as ex:
+        raise AnsibleFilterError(ex)
+    except Exception as ex:
+        raise AnsibleFilterError(ex)
+    utc_crontabs = [standard_to_aws_cron(utc_crontab, standard_cron.get('aws_specific_details')) for utc_crontab in utc_crontabs]
+    return utc_crontabs
+
+
 # ---- Ansible filters ----
 class FilterModule(object):
-    """ URI filter """
+    """ Crontab filters """
 
     def filters(self):
         return {
             'aws_to_standard_cron': aws_to_standard_cron,
-            'standard_to_aws_cron': standard_to_aws_cron
+            'standard_to_aws_cron': standard_to_aws_cron,
+            'aws_local_aws_utc_crons': aws_local_cron_to_aws_utc_crons
         }
