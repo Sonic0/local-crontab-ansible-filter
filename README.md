@@ -55,8 +55,10 @@ I have made my tests with _Ansible 2.9_.
 ansible-playbook filter-examples.yaml
 ```
 
-## Info
+## Other info
 This repo is part of my Cron-Converter projects group.
 Its related repositories:
 - [cron-converter](https://github.com/Sonic0/cron-converter)
 - [local-crontab](https://github.com/Sonic0/local-crontab)
+- [local-crontab-serverless-infrastructure](https://github.com/Sonic0/local-crontab-serverless-infrastructure)
+- [local-crontab-web-converter](https://github.com/Sonic0/local-crontab-web-converter)
