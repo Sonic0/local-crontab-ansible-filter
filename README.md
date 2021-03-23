@@ -3,14 +3,13 @@ Status: _IN PROGRESS_
 # local-crontab-ansible-filter
 Ansible filter with a few tools to handle with crontab string.
 Those tools are:
-- standard_to_aws_cron
-- aws_to_standard_cron
+- aws_standard_cron
+- standard_aws_cron
 - aws_local_aws_utc_crons
+- standard_local_utc_crons
   
 TODO (maybe ლ(╥﹏╥ლ))
-- Convert localized cron to UTC list of cron. Standard.
-- Convert localized cron to UTC. Standard and AWS.
-- Convert UTC cron to localized.
+- Convert localized cron to single UTC. Standard and AWS.
 
 Probably the filter will be only compatible with Python3.8 runtime due to dependecies.
 

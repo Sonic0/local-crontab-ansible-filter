@@ -94,13 +94,20 @@ def standard_to_aws_cron(cron_string: str, aws_specific_details: AwsSpecificDeta
 
 def aws_local_cron_to_aws_utc_crons(local_crontab: str, timezone: str) -> List[str]:
     """
-    Convert a crontab, in a local timezone, into a set of UTC crontabs.
+    Convert an AWS crontab, in a local timezone, into a set of AWS UTC crontabs.
     It creates multiple UTC crontabs because of Daylight Saving Time.
     More info at https://github.com/Sonic0/local-crontab
     :param local_crontab: (str) AWS crontab string (https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/ScheduledEvents.html)
     :param timezone: (str) time zone as TZ database name (https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
-    :return: List of UTC crontab strings
+    :return: List of AWS UTC crontab strings
     """
+    if not isinstance(local_crontab, string_types):
+        raise AnsibleFilterError('Invalid Ansible cron string')
+    crontab_parts = local_crontab.strip().split()
+    if len(crontab_parts) != 6:
+        raise AnsibleFilterError(f"len: {len(crontab_parts)}. Invalid cron string format, this is not an AWS cron "
+                                 f"(len 6)")
+
     standard_cron: ConvertedCronFromAws = aws_to_standard_cron(local_crontab)
     try:
         utc_crontabs = Converter(standard_cron.get('crontab'), timezone).to_utc_crons()
@@ -112,13 +119,38 @@ def aws_local_cron_to_aws_utc_crons(local_crontab: str, timezone: str) -> List[s
     return utc_crontabs
 
 
+def standard_local_cron_to_standard_utc_crons(local_crontab: str, timezone: str) -> List[str]:
+    """
+    Convert a crontab, in a local timezone, into a set of UTC crontabs.
+    It creates multiple UTC crontabs because of Daylight Saving Time.
+    More info at https://github.com/Sonic0/local-crontab
+    :param local_crontab: (str) crontab string (https://en.wikipedia.org/wiki/Cron)
+    :param timezone: (str) time zone as TZ database name (https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
+    :return: List of UTC crontab strings
+    """
+    if not isinstance(local_crontab, string_types):
+        raise AnsibleFilterError('Invalid Ansible cron string')
+    crontab_parts = local_crontab.strip().split()
+    if len(crontab_parts) != 5:
+        raise AnsibleFilterError(f"len: {len(crontab_parts)}. Invalid cron string format")
+
+    try:
+        utc_crontabs = Converter(str(local_crontab), timezone).to_utc_crons()
+    except WrongTimezoneError as ex:
+        raise AnsibleFilterError(ex)
+    except Exception as ex:
+        raise AnsibleFilterError(ex)
+    return utc_crontabs
+
+
 # ---- Ansible filters ----
 class FilterModule(object):
     """ Crontab filters """
 
     def filters(self):
         return {
-            'aws_to_standard_cron': aws_to_standard_cron,
-            'standard_to_aws_cron': standard_to_aws_cron,
-            'aws_local_aws_utc_crons': aws_local_cron_to_aws_utc_crons
+            'aws_standard_cron': aws_to_standard_cron,
+            'standard_aws_cron': standard_to_aws_cron,
+            'aws_local_aws_utc_crons': aws_local_cron_to_aws_utc_crons,
+            'standard_local_utc_crons': standard_local_cron_to_standard_utc_crons
         }
