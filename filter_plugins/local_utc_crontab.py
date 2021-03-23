@@ -12,15 +12,15 @@
 # roundtrip back to an AWS CloudWatch crontab
 from __future__ import (absolute_import, division, print_function)
 
-from typing import TypedDict, List, Literal
+from typing import TypedDict, List, Literal, Optional
 
 __metaclass__ = type
 
+from ansible.errors import AnsibleFilterError, AnsibleError
+from ansible.module_utils.six import string_types
 from local_crontab import Converter
 from local_crontab.converter import WrongTimezoneError
-from ansible.errors import AnsibleFilterError, AnsibleError
-from ansible.utils import helpers
-from ansible.module_utils.six import string_types
+from datetime import date
 
 cron_part_index_tuple = ('minute', 'hour', 'day', 'month', 'weekday', 'year')
 
@@ -67,7 +67,7 @@ def aws_to_standard_cron(aws_cron_string: str) -> ConvertedCronFromAws:
             }
 
 
-def standard_to_aws_cron(cron_string: str, aws_specific_details: AwsSpecificDetails) -> str:
+def standard_to_aws_cron(cron_string: str, aws_specific_details: Optional[AwsSpecificDetails] = None) -> str:
     """
     Convert an standard crontab to AWS crontab. It just adds the year cron part and it translates '*' to '?',
     from aws_specific_details dict
@@ -80,22 +80,26 @@ def standard_to_aws_cron(cron_string: str, aws_specific_details: AwsSpecificDeta
     crontab_parts = cron_string.strip().split()
     if len(crontab_parts) != 5:
         raise AnsibleFilterError(f"len: {len(crontab_parts)}. Invalid cron string format")
-    # replace * with ?
-    for part in crontab_parts:
-        if part == '*':
-            asterisk_part_index = crontab_parts.index(part)  # What is the '*' index?
-            question_part_index = cron_part_index_tuple[asterisk_part_index]  # What the corresponding cron part unit?
-            if question_part_index in aws_specific_details["question_parts"]:  # Is the part unit in the list of replacebles?
-                crontab_parts[asterisk_part_index] = crontab_parts[asterisk_part_index].replace("*", "?")
-    # Append specified year as cron part
-    crontab_parts.append(str(aws_specific_details["year"]))
+    if aws_specific_details:
+        # replace * with ?
+        for part in crontab_parts:
+            if part == '*':
+                asterisk_part_index = crontab_parts.index(part)  # What is the '*' index?
+                question_part_index = cron_part_index_tuple[asterisk_part_index]  # What the corresponding cron part unit?
+                if question_part_index in aws_specific_details["question_parts"]:  # Is the part unit in the list of replacebles?
+                    crontab_parts[asterisk_part_index] = crontab_parts[asterisk_part_index].replace("*", "?")
+        # Append specified year as cron part
+        crontab_parts.append(str(aws_specific_details["year"]))
+    else:
+        current_date = date.today()
+        crontab_parts.append(str(current_date.year))
     return " ".join(crontab_parts)
 
 
 def aws_local_cron_to_aws_utc_crons(local_crontab: str, timezone: str) -> List[str]:
     """
     Convert an AWS crontab, in a local timezone, into a set of AWS UTC crontabs.
-    It creates multiple UTC crontabs because of Daylight Saving Time.
+    It return multiple UTC crontabs because of Daylight Saving Time.
     More info at https://github.com/Sonic0/local-crontab
     :param local_crontab: (str) AWS crontab string (https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/ScheduledEvents.html)
     :param timezone: (str) time zone as TZ database name (https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)
@@ -122,7 +126,7 @@ def aws_local_cron_to_aws_utc_crons(local_crontab: str, timezone: str) -> List[s
 def standard_local_cron_to_standard_utc_crons(local_crontab: str, timezone: str) -> List[str]:
     """
     Convert a crontab, in a local timezone, into a set of UTC crontabs.
-    It creates multiple UTC crontabs because of Daylight Saving Time.
+    It return multiple UTC crontabs because of Daylight Saving Time.
     More info at https://github.com/Sonic0/local-crontab
     :param local_crontab: (str) crontab string (https://en.wikipedia.org/wiki/Cron)
     :param timezone: (str) time zone as TZ database name (https://en.wikipedia.org/wiki/List_of_tz_database_time_zones)

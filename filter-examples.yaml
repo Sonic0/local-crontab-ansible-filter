@@ -4,9 +4,15 @@
   hosts: localhost
   vars:
     cron_to_convert:
-      - crontab: 10 10 ? 10 2 2022
+      - crontab: 10 10 ? 10 2 2021
         type: aws
+      - crontab: 10 10 * 10 2
+        type: standard
+        result_crontab: 10 10 * 10 2 2021
       - crontab: 50 00 23 3-5 ? 2022
+        timezone: Europe/Rome
+        type: aws
+      - crontab: 39 05 * * ? *
         timezone: Europe/Rome
         type: aws
       - crontab: 50 00 23 3-5 *
@@ -54,6 +60,8 @@
           msg: "Cron: {{ item.crontab }}, Type: {{ item.type }} }}"
         loop: "{{ cron_to_convert | flatten(levels=1) }}"
 
+      # ----- AWS to standard and viceversa ------#
+      # Test 1
       - name: Convert crontab from AWS to standard
         set_fact:
           converted_cron_from_aws_to_standard: "{{ cron_to_convert[0].crontab | aws_standard_cron }}"
@@ -76,10 +84,26 @@
           success_msg: Reconverted crontab, from aws to standard and then to aws, is correct
           fail_msg: You are a stupid devel! (╥﹏╥)
 
+      ## Test 2
+      - name: Convert standard crontab, without aws_specific_details, to AWS
+        set_fact:
+          converted_cron_from_standard_to_aws: "{{ cron_to_convert[1].crontab | standard_aws_cron }}"
+
+      - name: Print converted standard cron to AWS, No aws_specific_details
+        debug:
+          var: converted_cron_from_standard_to_aws
+
+      - name: Test recorverted crontab, No aws_specific_details
+        assert:
+          that: converted_cron_from_standard_to_aws == cron_to_convert[1].result_crontab
+          success_msg: Reconverted crontab, from aws to standard and then to aws, is correct
+          fail_msg: You are a stupid devel! (╥﹏╥)
+
       # ---- Local AWS cron to UTC AWS crons ------- #
+      ## Test 1
       - name: Convert crontab from Local AWS to UTC AWS crontabs
         set_fact:
-          converted_cron_from_aws_to_aws_cron_list: "{{ cron_to_convert[1].crontab | aws_local_aws_utc_crons(cron_to_convert[1].timezone) }}"
+          converted_cron_from_aws_to_aws_cron_list: "{{ cron_to_convert[2].crontab | aws_local_aws_utc_crons(cron_to_convert[2].timezone) }}"
 
       - name: Print converted cron from AWS to UTC cron list
         debug:
@@ -95,10 +119,34 @@
             - 50 23 22 3 ? 2022
             - 50 22 22 4-5 ? 2022
 
+      ## Test 2
+      - name: Convert crontab from Local AWS to UTC AWS crontabs
+        set_fact:
+          converted_cron_from_aws_to_aws_cron_list: "{{ cron_to_convert[3].crontab | aws_local_aws_utc_crons(cron_to_convert[3].timezone) }}"
+
+      - name: Print converted cron from AWS to UTC cron list
+        debug:
+          var: converted_cron_from_aws_to_aws_cron_list
+
+      - name: Test recorverted crontab from AWS to UTC cron list
+        assert:
+          that: converted_cron_from_aws_to_aws_cron_list == test_list
+          success_msg: Crontabs, from Local AWS to UTC AWS cron list, are corrects
+          fail_msg: You are a stupid devel! (╥﹏╥)
+        vars:
+          test_list:
+            - 39 4 * 1-2 * *
+            - 39 4 1-27 3 ? *
+            - 39 3 28-31 3 ? *
+            - 39 3 * 4-9 * *
+            - 39 3 1-30 10 ? *
+            - 39 4 31 10 ? *
+            - 39 4 * 11-12 * *
+
       # ---- Local cron to UTC crons ------- #
       - name: Convert standard local crontab to UTC crontabs
         set_fact:
-          converted_cron_from_local_to_cron_list: "{{ cron_to_convert[2].crontab | standard_local_utc_crons(cron_to_convert[2].timezone) }}"
+          converted_cron_from_local_to_cron_list: "{{ cron_to_convert[4].crontab | standard_local_utc_crons(cron_to_convert[4].timezone) }}"
 
       - name: Print converted local cron to UTC cron list
         debug:
