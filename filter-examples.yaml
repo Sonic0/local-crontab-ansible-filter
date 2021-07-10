@@ -24,6 +24,9 @@
         aws_specific_details:
           year: 2022
           question_parts: [ 'day' ]
+      - crontab: 01 23 1 * *
+        timezone: America/New_York
+        type: standard
 
   tasks:
 
@@ -142,6 +145,23 @@
             - 39 3 1-30 10 ? *
             - 39 4 31 10 ? *
             - 39 4 * 11-12 * *
+
+      # ---- Local cron to UTC cron ------- #
+      - name: Convert standard local crontab to UTC crontab
+        set_fact:
+          converted_cron_from_local_to_cron_utc: "{{ cron_to_convert[6].crontab | standard_local_utc_cron(cron_to_convert[6].timezone) }}"
+
+      - name: Print converted local cron to UTC cron
+        debug:
+          var: converted_cron_from_local_to_cron_utc
+
+      - name: Test recorverted crontab from AWS to UTC cron
+        assert:
+          that: converted_cron_from_local_to_cron_utc == result_utc
+          success_msg: Crontab, from Local to UTC cron, are correct
+          fail_msg: You are a stupid devel! (╥﹏╥)
+        vars:
+          result_utc: 1 3 2 * *
 
       # ---- Local cron to UTC crons ------- #
       - name: Convert standard local crontab to UTC crontabs
